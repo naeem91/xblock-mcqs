@@ -7,6 +7,7 @@ from django.template import Template, Context
 from xblock.core import XBlock
 from xblock.fields import Scope, Integer, String, List, Boolean
 from xblock.fragment import Fragment
+from xblock.validation import ValidationMessage
 
 from xblockutils.studio_editable import StudioEditableXBlockMixin
 
@@ -32,7 +33,7 @@ class McqsXBlock(XBlock, StudioEditableXBlockMixin):
     correct_choice = Integer(
         display_name='Correct Choice',
         default=4, scope=Scope.content,
-        help='Index of correct choice among given choices'
+        help='Index of correct choice among given choices. For example if third choice is correct, enter 3'
     )
     hint = String(
         display_name='Hint',
@@ -65,6 +66,23 @@ class McqsXBlock(XBlock, StudioEditableXBlockMixin):
         frag.add_javascript(self.resource_string("static/js/src/mcqs.js"))
         frag.initialize_js('McqsXBlock')
         return frag
+
+    def validate_field_data(self, validation, data):
+        """
+        Perform validation on Studio submitted data
+        """
+        if not data.question.strip():
+            validation.add(ValidationMessage(ValidationMessage.ERROR, u"Question is required."))
+
+        # there must be two choices to choose from
+        if not data.choices or len(data.choices) < 2:
+            validation.add(ValidationMessage(ValidationMessage.ERROR, u"Please enter atleast two choices"))
+
+        if data.correct_choice not in range(1, len(data.choices) + 1):
+            validation.add(ValidationMessage(
+                ValidationMessage.ERROR,
+                u"Correct choice must be from 1 to {}".format(len(data.choices))
+            ))
 
     @XBlock.json_handler
     def check_answer(self, data, suffix=''):
